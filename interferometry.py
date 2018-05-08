@@ -1,7 +1,7 @@
 #!/usr/bin/python
 ######################################################################
 # Name:         interferometry.py
-# Author:		A. Marocchino, F. Filippi
+# Author:		F. Filippi, A. Marocchino
 # Date:			2017-07-13
 # Purpose:      synthetic inteferometry from binary ALaDyn files
 # Source:       python
@@ -21,6 +21,11 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 sys.path.append(os.path.join(os.path.expanduser('~'),'Codes','Code_ALaDyn','tools-ALaDyn','pythons'))
 from read_ALaDyn_bin import *
 ### --- ###
+
+#FLAGS
+plotDensitySlice=0;
+plotDephasingMap=0;
+plotInterferogram=1;
 
 
 # - #
@@ -71,9 +76,18 @@ for i in range(1,len(x)):
 
 #PLOT
 #density
-DensPlot = plt.imshow(n [:, len(y)/2, :])
-plt.colorbar
+if plotDensitySlice:
+    DensPlot = plt.imshow(n [:, len(y)/2, :])
+    plt.colorbar
+    plt.show
 
+#dephasing
+if plotDephasingMap:
+    DephPlot = plt.imshow(n [:, len(y)/2, :])
+    plt.colorbar
+    plt.show
+    
 #interferogram
-IntegPlot = plt.imshow(interferogram.T)
-plt.show
+if plotInterferogram:
+    IntegPlot = plt.imshow(interferogram.T)
+    plt.show
