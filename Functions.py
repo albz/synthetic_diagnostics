@@ -6,10 +6,8 @@ Created on Thu Mar  9 18:30:37 2017
 """
 import numpy as np
 from scipy import interpolate
-from scipy.interpolate import RegularGridInterpolator as rgi
 import scipy.integrate as integrate
 from scipy.integrate import odeint
-from scipy.constants import *
 import matplotlib.pyplot as plt
 
 
@@ -36,15 +34,11 @@ def CreateTiltednMatrix(x,y,z, angletox, nin):
     
     centerx=np.abs(x[0]-x[-1])/2
     centerz=np.abs(z[0]-z[-1])/2
-#    print(centerx)
-#    print(centerz)
             
     for i in range(len(x)):
         for j in range(len(z)):
             if (z[j]-centerz)*np.sin(np.radians(90-angletox))>(x[i]-centerx)*np.cos(np.radians(90-angletox)):
-#            if x[i]<(z[j]-z[1])*np.tan(np.radians(angletox)):
-                n[i,:,j]=nin
-    
+                n[i,:,j]=nin    
     return n
 
 
@@ -139,10 +133,14 @@ def gradient_ft(g, delta):
 """
 SOLVERS
 """
-def FresnelPropagatorTF(Uin, Htf, wavelength) :
+def FresnelPropagatorTF(x,y,Uin, Htf, wavelength, z) :
     #Uin source plane field
     #Htf transformed transfer function
-    Uin
+    #wavelength is given in [m] 
+    #z distance of propagation in [m]
+    from scipy.constants import pi
+    Uin=fft2(uin, delta):
+    k=2*pi/wavelength #wavenumber
     
     
     return Uout
@@ -165,6 +163,7 @@ def FraunhoferPropagatorTF(Uin, Htf, wavelength) :
 def ConvertPlasma2n(n_e, LambdaProbe):
     #convert plasma density in refrective index
     #LambdaProbe photon wavelength in [m]
+    from scipy.constants import c,e, m_e, epsilon_0, pi
 #    c=299792458 #m/s
 #    e=1.60219E-19; #C
 #    m_e=9.1091E-31; #massa a riposo elettrone	kg 
@@ -202,7 +201,7 @@ def Fx(xin, z, a, b):
     
     dxin = [0, 0]    # Create a list to store derivatives.
     dxin[0] = xin[1]    # Store first derivative of x(t).
-    dxin[1] = -a*x[1]+b    # Store second derivative of x(t).
+    dxin[1] = -1*a*x[1]+b    # Store second derivative of x(t).
     return dxin
 
 
@@ -214,7 +213,7 @@ def Fy(yin, z, a, b):
     
     dyin = [0, 0]    # Create a list to store derivatives.
     dyin[0] = yin[1]    # Store first derivative of y(t).
-    dyin[1] = -a*y[1]+b    # Store second derivative of y(t).
+    dyin[1] = -1*a*y[1]+b    # Store second derivative of y(t).
     return dyin
 
 
@@ -225,7 +224,10 @@ def RayTracingPropagator(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
     #zinit is the integration start
     #zend is the integration end
     #RayMatrix is the matrix of ray elements of class 'photon' described in Classes.py
-    #n is the refractive index matrix    
+    #n is the refractive index matrix  
+    #THIS VERSION DERIVATES BEFORE PROPAGATING
+    
+    from scipy.interpolate import RegularGridInterpolator as rgi
     
     #evaluates the derivatives of n
     dndx=np.diff(n,axis=0)/Dx
@@ -237,7 +239,7 @@ def RayTracingPropagator(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
     dndz=np.diff(n, axis=2)/Dz
     dndzi = rgi((x, y, z[0:-1]+Dz/2), dndz, bounds_error=False, fill_value=None)   
     
-    ni = rgi((x, y, z), n, bounds_error=False, fill_value=1)
+    ni = rgi((x, y, z), n, method='linear', bounds_error=False, fill_value=1)
     
     init=np.argmin(np.abs(z-zinit))
     stop=np.argmin(np.abs(z-zend))
@@ -248,24 +250,7 @@ def RayTracingPropagator(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
             print(((len(RayMatrix)-i)/len(RayMatrix))*100, '%')
             print('\n')
             
-#            xnstart=np.argmin(x-RayMatrix[i][j].x[init])
-#            ynstart=np.argmin(y-RayMatrix[i][j].y[init])
-#            n_local=n[xnstart,ynstart,init]            
-#            
-#            xy0=[RayMatrix[i][j].x[init],  RayMatrix[i][j].px[init]/n_local, #initial conditions x and x'
-#                 RayMatrix[i][j].y[init],  RayMatrix[i][j].py[init]/n_local] #initial conditions y and y'
-#            
-#            xsol = odeint(F, xy0, z[init:stop], args=(dndxi, dndyi, dndzi, ni))
-#            #save results
-#            RayMatrix[i][j].x[init+1:stop+1]=xsol[:,0]
-#            RayMatrix[i][j].y[init+1:stop+1]=xsol[:,2]
-#            for k in range(init, stop):
-#                xn=np.argmin(np.abs(x-RayMatrix[i][j].x[k]))
-#                yn=np.argmin(np.abs(y-RayMatrix[i][j].y[k]))
-#                RayMatrix[i][j].px[k]=xsol[k,1]*ni([RayMatrix[i][j].x[k],RayMatrix[i][j].y[k], z[k]])
-#                RayMatrix[i][j].py[k]=xsol[k,3]*ni([RayMatrix[i][j].x[k],RayMatrix[i][j].y[k], z[k]])
-
-            #separated x and y
+            #it analyse separatly x and y
             for zcount in range(init,stop):
                 n_local=ni([RayMatrix[i][j].x[zcount],RayMatrix[i][j].y[zcount],z[zcount]])
                 x0=[RayMatrix[i][j].x[zcount],  RayMatrix[i][j].px[zcount]/n_local] #initial conditions x and x'
@@ -276,17 +261,64 @@ def RayTracingPropagator(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
                 dndz_local=dndzi([x0[0],y0[0],z[zcount]])                
                 
                 
-                xsol = odeint(Fx, x0, z[range(zcount, zcount+2)], args=(dndz_local/n_local, dndx_local/n_local), mxstep=5000000)#,mxstep=5000000
-                ysol = odeint(Fy, y0, z[range(zcount, zcount+2)], args=(dndz_local/n_local, dndy_local/n_local), mxstep=5000000)
+                xsol = odeint(Fx, x0, z[range(zcount, zcount+2)], args=(dndz_local/n_local, -dndx_local/n_local), mxstep=5000000)#,mxstep=5000000
+                ysol = odeint(Fy, y0, z[range(zcount, zcount+2)], args=(dndz_local/n_local, -dndy_local/n_local), mxstep=5000000)
                 
-#                print(dndx_local, dndy_local, dndz_local, n_local, xsol[1,:], ysol[1,:], z[zcount])
+#                if dndx_local!=0: 
+#                    print(dndx_local, dndy_local, dndz_local, n_local, xsol[1,:], ysol[1,:], z[zcount])
                 
                 RayMatrix[i][j].x[zcount+1]=xsol[1,0]
                 RayMatrix[i][j].y[zcount+1]=ysol[1,0]  
                 RayMatrix[i][j].z[zcount+1]=z[zcount+1]
                 RayMatrix[i][j].px[zcount+1]=xsol[1,1]*ni([xsol[1,0],ysol[1,0], z[zcount+1]])
                 RayMatrix[i][j].py[zcount+1]=ysol[1,1]*ni([xsol[1,0],ysol[1,0], z[zcount+1]])            
-            #till here
+                
+    return RayMatrix
 
+def RayTracingPropagator2V(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
+    #x, y, z the coordinates of the the matrix n along which the light is propagating
+    #NB z is the light propagation axis
+    #zinit is the integration start
+    #zend is the integration end
+    #RayMatrix is the matrix of ray elements of class 'photon' described in Classes.py
+    #n is the refractive index matrix  
+    #THIS VERSION USE THE SPLINE INTERPOLATION TO EVALUATE THE DERIVATIVES
+    
+    from scipy.interpolate import RectBivariateSpline as rbs
+        
+    init=np.argmin(np.abs(z-zinit))
+    stop=np.argmin(np.abs(z-zend))
+    
+    for i in range(len(RayMatrix)):
+        for j in range(len(RayMatrix[0])):
+            print('Ray Tracing')
+            print(((len(RayMatrix)-i)/len(RayMatrix))*100, '%')
+            print('\n')
+
+            for zcount in range(init,stop): 
+                ycount=np.amin(RayMatrix[i][j].y[zcount]-y)
+                ni=rbs(x,y, n [:, :, zcount])
+                niz=rbs(x,z, n [:, ycount, :])
+                x0=[RayMatrix[i][j].x[zcount],  RayMatrix[i][j].px[zcount]/ni(RayMatrix[i][j].x[zcount],RayMatrix[i][j].y[zcount])] #initial conditions x and x'
+                y0=[RayMatrix[i][j].y[zcount],  RayMatrix[i][j].py[zcount]/ni(RayMatrix[i][j].x[zcount],RayMatrix[i][j].y[zcount])] #initial conditions y and y'
+                
+                dndx_local=ni(x0[0],y0[0],dx=1)
+                dndy_local=ni(x0[0],y0[0],dy=1)
+                dndz_local=niz(x0[0],z[zcount],dy=1) 
+                n_local=ni(x0[0],y0[0])
+                
+                
+                xsol = odeint(Fx, x0, z[range(zcount, zcount+2)], args=(dndz_local/n_local, -dndx_local/n_local), mxstep=5000000)#,mxstep=5000000
+                ysol = odeint(Fy, y0, z[range(zcount, zcount+2)], args=(dndz_local/n_local, -dndy_local/n_local), mxstep=5000000)
+                
+#                if dndx_local!=0: 
+#                    print(dndx_local, dndy_local, dndz_local, n_local, xsol[1,:], ysol[1,:], z[zcount])
+                
+                RayMatrix[i][j].x[zcount+1]=xsol[1,0]
+                RayMatrix[i][j].y[zcount+1]=ysol[1,0]  
+                RayMatrix[i][j].z[zcount+1]=z[zcount+1]
+                RayMatrix[i][j].px[zcount+1]=xsol[1,1]*n_local
+                RayMatrix[i][j].py[zcount+1]=ysol[1,1]*n_local    
+                         
                 
     return RayMatrix

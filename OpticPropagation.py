@@ -14,17 +14,14 @@ Created on Thu Mar  9 15:10:30 2017
 ### loading shell commands
 import os, os.path, sys
 import numpy as np
-import scipy.integrate as integrate
-from scipy.constants import *
 import matplotlib.pyplot as plt
-import pylab as pyl
 
 #sys.path.append(os.path.join(os.path.expanduser('~'),'Codes','Code_ALaDyn','tools-ALaDyn','pythons'))
 #from read_ALaDyn_bin import *
 sys.path.append(os.path.join(os.path.expanduser('~'),'Codes','synthetic_diagnostics','tools','Functions'))
 sys.path.append(os.path.join(os.path.expanduser('~'),'Codes','synthetic_diagnostics','tools','Classes'))
-#from Functions import *
-#from Classes import *
+from Functions import *
+from Classes import *
 #from sympy.physics.optics import RayTransferMatrix, ThinLens
 #from sympy import Symbol, Matrix
 
@@ -72,9 +69,9 @@ INIZIALIZE PLASMA DENSITY
 
 
 #test density
-ymax=100 #high
-zmax=304 #304 #probe laser propagation 
-xmax=304 #1120 #main laser propagation
+ymax=300 #high
+zmax=300 #304 #probe laser propagation 
+xmax=300 #1120 #main laser propagation
 Dx=1E-3; #m
 Dy=1E-3; #m
 Dz=1E-3; #m
@@ -83,7 +80,7 @@ x=np.linspace(0,Dx*xmax,xmax)
 y=np.linspace(0,Dy*ymax,ymax)
 z=np.linspace(0,Dz*zmax,zmax)
 
-n=CreateTiltednMatrix(x,y,z,18,1.27)
+n=CreateTiltednMatrix(x,y,z,45,1.27)
 #n_e=CreateTestDensity(xmax,ymax,zmax)    
 n_0=1E19 #[cm^-3]
 #n_e=n_e*n_0
@@ -144,7 +141,6 @@ LASER PROPAGATION
 #n=np.sqrt(1-n_e/n_c)
 
 #let the laser propagates inside 
-#Nabla_eta=np.gradient(n)
 zinit=z[0]
 zend=z[-1]
 Laser=RayTracingPropagator(x, y, z, Dx, Dy, Dz, zinit, zend, Laser, n)
