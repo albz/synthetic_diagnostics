@@ -1,0 +1,26 @@
+\documentclass{article}
+\usepackage{graphicx}
+
+\begin{document}
+\title{Ray propagation}
+	
+The axis are defined by the initial rays position. It is defined as 
+\subsubsection{Fresnel Propagator Transfer Function}
+There are two different solvers, depending if the parater $m$ is explicited. $m$ sets the size of the grid 
+\begin{equation}
+m=\frac{\delta_2}{\delta_1}
+\end{equation}
+	
+\subsubsection{Refractive index of a dispersive medium}
+Refractive index is calculated with the \index{Sellmeier formula}Sellmeier formula, 
+\begin{equation}
+n^2 \left( \lambda \right)  = 1 + \sum_{i} \frac{B_i \lambda^2}{\lambda^2 - C_i}
+\end{equation}
+implemented until the third order of the summarization. Sellmeier coefficients are tabulated in 
+but can be retrieved elsewhere in literature.
+
+The Sellmeier equation is implemented in the function \index{Sellmeier}Sellmeier()
+
+For not-implemented materials, it is possible to use the ''custom'' material whose coefficients can be declared launching the Sellmeier function.
+
+\end{document}

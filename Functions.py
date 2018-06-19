@@ -8,7 +8,7 @@ import numpy as np
 from scipy import interpolate
 import scipy.integrate as integrate
 from scipy.integrate import odeint
-import matplotlib.pyplot as plt
+from Classes import *
 
 
 
@@ -16,14 +16,14 @@ def CreateTestDensity(x,y,z):
     n=np.zeros([x,y,z])
     #xquarter=int(x/4)
     #yquarter=int(y/4)
-    #n[xquarter:x-xquarter, yquarter:y-yquarter, :]=np.ones([xquarter*2,yquarter*2,z])
     for i in range(1,x):
         for j in range(1,y):
             for k in range(1,z):
                 if k<i*(z/x):
                     n[i,j,k]=1.
-                     
+                   
     return n
+
 
 def CreateTiltednMatrix(x,y,z, angletox, nin):
     #x,y,z coordinates of the matrix n
@@ -42,11 +42,36 @@ def CreateTiltednMatrix(x,y,z, angletox, nin):
     return n
 
 
+def CreateTiltednSlice(x,y,z, angletox, thickness, nin):
+    #x,y,z coordinates of the matrix n
+    #z is the light propagation axis
+    #angletox angle in degree with the x axis (perpendicular to z)
+    #thickness of the slice
+    #n refractive index of the medium
+    n=np.ones([len(x),len(y),len(z)])
+    
+    centerx=np.abs(x[0]-x[-1])/2
+    centerz=np.abs(z[0]-z[-1])/2
+    centerx2=thickness*np.cos(np.radians(90-angletox))+centerx
+    centerz2=thickness*np.sin(np.radians(90-angletox))+centerz
+#    print(centerx2,centerx,centerz2,centerz)
+            
+    for i in range(len(x)):
+        for j in range(len(z)):
+#            if (z[j]-centerz2)*np.sin(np.radians(90-angletox))>(x[i]-centerx2)*np.cos(np.radians(90-angletox)):
+            if (z[j])*np.sin(np.radians(90-angletox))>(x[i])*np.cos(np.radians(90-angletox)):
+                if (z[j]-centerz2)*np.sin(np.radians(90-angletox))<(x[i]-(centerx2-thickness))*np.cos(np.radians(90-angletox)):
+                    n[i,:,j]=nin; 
+#                    print(x[i], z[j], centerx2,centerx)
+#                    print('done')
+    return n
+
+
 def CreateLaserProfile(LaserShape,LaserSpot,LambdaProbe,Energy,PulseDuration,SpotxFWHM,SpotyFWHM, x,y,z):
     #x,y,z in [m]
-    # LaserProfile [sqrt(W)/m] (it is the Upb=[Upbx, Upby, Upbz])
+    # LaserProfile [sqrt(W)/m] (it is the upb=[upbxy, upbz])
+    from scipy.constants import c
     
-#    c=299792458 #m/s
     #temporal profile
     TemporalProfile=np.zeros(len(z))
     if LaserShape=='gaussian':
@@ -58,34 +83,44 @@ def CreateLaserProfile(LaserShape,LaserSpot,LambdaProbe,Energy,PulseDuration,Spo
     if LaserShape=='flattop':
         TemporalProfile=[1/(c*PulseDuration) if c else 0 for(c) in [((z>-(c*PulseDuration)) & (z<(c*PulseDuration))) for z in z]]
     
-    Upbz=TemporalProfile    
+    if LaserShape=='CW':
+        TemporalProfile=[1.]
+        
         
     #transverse profile
     SpotProfile=np.zeros((len(x),len(y)))
     if LaserSpot=='gaussian':
         sigmax=SpotxFWHM*2*np.sqrt(2*np.log(2)) #[m]
         ax=1/(sigmax * np.sqrt(2*np.pi))
-        mux=0;
-        
+        mux=0;        
         sigmay=SpotyFWHM*2*np.sqrt(2*np.log(2)) #[m]
         ay=1/(sigmay * np.sqrt(2*np.pi))
-        muy=0;
-        
-        SpotProfile=ax*ay*np.exp(-1/2*(((x-mux)/sigmax)**2+((y-muy)/sigmay)**2))
+        muy=0;        
+        for i in range(np.size(x)):
+            SpotProfile[i,:]=ax*ay*np.exp(-1/2*(((x[i]-mux)/sigmax)**2+((y-muy)/sigmay)**2))
+            
     if LaserSpot=='flattop':
         #TO BE IMPLEMENTED
-        SpotProfile=1/SpotxFWHM;
+        Xprofile=[1/(SpotxFWHM) if c else 0 for(c) in [((x>-(SpotxFWHM)) & (x<(SpotxFWHM))) for x in x]]
+        Yprofile=[1/(SpotyFWHM) if c else 0 for(c) in [((y>-(SpotyFWHM)) & (y<(SpotyFWHM))) for y in y]]          
+        for i in range(np.size(x)):
+            SpotProfile[i,:]=[Xprofile[i]*x for x in Yprofile]
         
-        
-#    LaserProfile
+#    create LaserProfile
+    LaserProfile=np.zeros((len(x),len(y),np.size(TemporalProfile)))
+    for i in range(np.size(TemporalProfile)):
+            LaserProfile[:,:,i]=[TemporalProfile[i]*x for x in SpotProfile]
     
-    #LambdaProbe,
-    #normalize to energy
-    TempInt=np.trapz(np.trapz(np.trapz(LaserProfile**2, x, axis=0), y, axis=1), z/c, axis=2)
-    LaserProfile=LaserProfile*Energy/TempInt
-    
-    return Upbz
+    return LaserProfile
 
+def CreateLaserphotonTest(x,y, z, zend, lambdal=0.):
+    Laser=[photon]*np.size(x)
+    for i in range(int(np.size(x))-1):
+        Laser[i]=[photon]*int(np.size(y))
+        for k in range(int(np.size(y))-1):
+            print(i,k)
+            Laser[i][k]=photon(x[int(np.size(x)/2+i)], y[int(np.size(y)/2+k)], z[0], zend, wavelenght=lambdal)
+    return Laser
 
 """
 FFT
@@ -133,17 +168,69 @@ def gradient_ft(g, delta):
 """
 SOLVERS
 """
-def FresnelPropagatorTF(x,y,Uin, Htf, wavelength, z) :
-    #Uin source plane field
-    #Htf transformed transfer function
+def FresnelOneStepPropagatorTF(x,y,uin, wavelength, Dz, printdelta='False') :
+    #Fresnel one step propagator in vacuum for monochromatic wave
+    #uin source plane field
     #wavelength is given in [m] 
-    #z distance of propagation in [m]
-    from scipy.constants import pi
-    Uin=fft2(uin, delta):
-    k=2*pi/wavelength #wavenumber
+    #Dz distance of propagation in [m]
+    #printdelta if True it prints the spacing grid of the final spot
+    from scipy.constants import pi    
     
+    N = np.size(x)
+    d1x=np.abs(x[-1]-x[0])/N #x grid spacing of the initial spot
+    d2x=wavelength*Dz/(N*d1x) #x grid spacing of the final spot
+    M = np.size(y)
+    d1y=np.abs(y[-1]-y[0])/M
+    d2y=wavelength*Dz/(M*d1y)
+    if printdelta=='True':
+        print('dxobj=',d2x,'dyobj=',d2y)
     
-    return Uout
+    k = 2*pi/wavelength;    # optical wavevector    
+    x1, y1 = np.meshgrid(x,y) # source-plane coordinates
+    x2, y2 = np.meshgrid(np.linspace(-N/2,N/2-1,N)*d2x, np.linspace(-M/2,M/2-1,M)*d2y)  # observation-plane coordinates
+    # evaluate the Fresnel-Kirchhoff integral
+    uout = 1/(1j*wavelength*Dz) * np.exp(1j*k/(2*Dz)*(x2**2 + y2**2)) * fft2(uin * np.exp(1j*k/(2*Dz)*(x1**2 + y1**2)), d1x)
+    
+    return [x2, y2, uout]
+
+def Fresnel2StepsPropagatorTF(x,y,uin, wavelength, Dz, d2, printdelta='False') :
+    #Fresnel two steps propagator in vacuum for monochromatic wave
+    #uin source plane field
+    #wavelength is given in [m] 
+    #d2x, d2y final grid spacing 
+    #Dz distance of propagation in [m]
+    #printdelta if True it prints the spacing grid of the initial and final spot
+    from scipy.constants import pi    
+    
+    N = np.size(x) # number of grid points
+    d1x=np.abs(x[-1]-x[0])/N #x grid spacing of the initial spot
+    M = np.size(y)
+    d1y=np.abs(y[-1]-y[0])/M          
+              
+    # source-plane coordinates
+    k = 2*pi/wavelength;    # optical wavevector    
+    x1, y1 = np.meshgrid(x,y) # source-plane coordinates
+    
+    # magnification
+    m = d2/d1x;
+    # intermediate plane
+    Dz1 = Dz / (1 - m); # propagation distance 
+    d1a = wavelength * abs(Dz1) / (N * d1x);
+    # coordinates
+    x1a, y1a = np.meshgrid(x*d1a/d1x,y*d1a/d1y) # intermidiate plane coordinates
+    #evaluate the Fresnel-Kirchhoff integral
+    uitm = 1/(1j*wavelength*Dz1) * np.exp(1j*k/(2*Dz1) * (x1a**2+y1a**2))* fft2(uin*np.exp(1j*k/(2*Dz1)*(x1**2 + y1**2)), d1x)
+    # observation plane
+    Dz2 = Dz - Dz1; # propagation distance # coordinates
+    x2, y2 = np.meshgrid(x*d2/d1x,y*d2/d1y) # source-plane coordinates
+    # evaluate the Fresnel diffraction integral
+    uout = 1/(1j*wavelength*Dz2) * np.exp(1j*k/(2*Dz2) * (x2**2+y2**2)) * fft2(uitm*np.exp(1j*k/(2*Dz2) * (x1a**2 + y1a**2)), d1a)
+    
+    if printdelta:
+        print('dxobj=',d2,'dyobj=',d2)
+        
+    return [x2, y2, uout]
+
 
 def TFVacuum(z) :
     #z propagation distance
@@ -218,7 +305,7 @@ def Fy(yin, z, a, b):
 
 
 
-def RayTracingPropagator(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
+def RayTracingPropagatorParax(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
     #x, y, z the coordinates of the the matrix n along which the light is propagating
     #NB z is the light propagation axis
     #zinit is the integration start
@@ -275,7 +362,7 @@ def RayTracingPropagator(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
                 
     return RayMatrix
 
-def RayTracingPropagator2V(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
+def RayTracingPropagatorParax2V(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
     #x, y, z the coordinates of the the matrix n along which the light is propagating
     #NB z is the light propagation axis
     #zinit is the integration start
@@ -299,8 +386,8 @@ def RayTracingPropagator2V(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
                 ycount=np.amin(RayMatrix[i][j].y[zcount]-y)
                 ni=rbs(x,y, n [:, :, zcount])
                 niz=rbs(x,z, n [:, ycount, :])
-                x0=[RayMatrix[i][j].x[zcount],  RayMatrix[i][j].px[zcount]/ni(RayMatrix[i][j].x[zcount],RayMatrix[i][j].y[zcount])] #initial conditions x and x'
-                y0=[RayMatrix[i][j].y[zcount],  RayMatrix[i][j].py[zcount]/ni(RayMatrix[i][j].x[zcount],RayMatrix[i][j].y[zcount])] #initial conditions y and y'
+                x0=[RayMatrix[i][j].x[zcount],  RayMatrix[i][j].dx[zcount]] #initial conditions x and x'
+                y0=[RayMatrix[i][j].y[zcount],  RayMatrix[i][j].dy[zcount]] #initial conditions y and y'
                 
                 dndx_local=ni(x0[0],y0[0],dx=1)
                 dndy_local=ni(x0[0],y0[0],dy=1)
@@ -317,8 +404,67 @@ def RayTracingPropagator2V(x, y, z, Dx, Dy, Dz, zinit, zend, RayMatrix, n) :
                 RayMatrix[i][j].x[zcount+1]=xsol[1,0]
                 RayMatrix[i][j].y[zcount+1]=ysol[1,0]  
                 RayMatrix[i][j].z[zcount+1]=z[zcount+1]
-                RayMatrix[i][j].px[zcount+1]=xsol[1,1]*n_local
-                RayMatrix[i][j].py[zcount+1]=ysol[1,1]*n_local    
+                RayMatrix[i][j].dx[zcount+1]=xsol[1,1]
+                RayMatrix[i][j].dy[zcount+1]=ysol[1,1]    
                          
                 
     return RayMatrix
+
+"""
+SCREEN
+"""
+def printLaserProfile(LasProfile,x,y,z0, savePlot='False', address='none'):
+    import matplotlib.pyplot as plt
+    import pylab as pyl
+    LasPlot = plt.imshow(LasProfile [:, :, z0], extent=[x1[0],x1[-1],y1[0],y1[-1]], cmap=plt.cm.plasma)
+    plt.colorbar()
+    plt.xlabel('z')
+    plt.ylabel('x')
+    plt.show
+    if savePlot:
+        pyl.savefig(address, format='png')
+        
+        
+"""
+OPTICAL PROPERTIES
+"""
+def Sellmeier(wavelength, medium, ordinary='True', B1=0, B2=0, B3=0, C1=0, C2=0, C3=0):
+    #wavelength in m
+    #medium is a string with the name of the medium
+    # for other mediums  RefractiveIndex.info
+    import scipy as sci
+    if medium=='custom': #it just accept the values in input 
+        pass        
+    elif medium=='BK7': #SCHOTT glass data sheets
+        B1=1.03961212
+        B2=0.231792344
+        B3=1.01046945
+        C1=6.00069867E-3 #um^2
+        C2=2.00179144E-2 #um^2
+        C3=103.560653 #um^2
+    elif medium=='fused silica': #SCHOTT glass data sheets
+        B1=0.696166300
+        B2=0.407942600
+        B3=0.897479400
+        C1=4.67914826E-3 #um^2
+        C2=1.35120631E-2 #um^2
+        C3=97.9340025 #um^2
+    elif medium=='sapphire': #SCHOTT glass data sheets
+        if ordinary=='True': #or p polarized
+            B1=1.43134930
+            B2=0.65054713
+            B3=5.3414021
+            C1=5.2799261E-3 #um^2
+            C2=1.42382647E-2 #um^2
+            C3=325.017834 #um^2
+        elif ordinary=='False': #or s polarized
+            B1=1.5039759
+            B2=0.55069141
+            B3=6.5927379
+            C1=5.48041129E-3 #um^2
+            C2=1.47994281E-2 #um^2
+            C3=402.89514 #um^2
+        
+    l=wavelength*1E6 #convert the wavelength in 
+    n=sci.sqrt(1+(B1*l**2/(l**2-C1))+(B2*l**2/(l**2-C2))+(B3*l**2/(l**2-C3)))
+    return n

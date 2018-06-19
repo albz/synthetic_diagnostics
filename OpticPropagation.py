@@ -24,6 +24,7 @@ from Functions import *
 from Classes import *
 #from sympy.physics.optics import RayTransferMatrix, ThinLens
 #from sympy import Symbol, Matrix
+from scipy.constants import c
 
 """
 SETTINGS
@@ -32,9 +33,9 @@ SETTINGS
 analysis='Fourier' #'RayTracing'
 
 #FLAGS
-plotDensitySlicex=1;
+plotDensitySlicex=0;
 plotDensitySlicey=0;
-plotLaserSlice=0;
+plotLaserSlice=1;
 plotDephasingMap=0;
 plotInterferogram=0;
 
@@ -76,11 +77,12 @@ Dx=1E-3; #m
 Dy=1E-3; #m
 Dz=1E-3; #m
 
-x=np.linspace(0,Dx*xmax,xmax)
-y=np.linspace(0,Dy*ymax,ymax)
-z=np.linspace(0,Dz*zmax,zmax)
+xp=np.linspace(0,Dx*xmax,xmax)
+yp=np.linspace(0,Dy*ymax,ymax)
+zp=np.linspace(0,Dz*zmax,zmax)
 
-n=CreateTiltednMatrix(x,y,z,45,1.27)
+#n=CreateTiltednMatrix(x,y,z,45,1.27)
+n=CreateTiltednSlice(xp,yp,zp, 45, 100*Dx, 1.27)
 #n_e=CreateTestDensity(xmax,ymax,zmax)    
 n_0=1E19 #[cm^-3]
 #n_e=n_e*n_0
@@ -94,60 +96,53 @@ INIZIALIZE PROBE LASER
 LambdaProbe=400e-9    #[m]
 SpotxFWHM=1*Dx #200e-6      # m
 SpotyFWHM=1*Dy #200e-6      # m
-#LaserShape='gaussian' #or 'flattop'
-#LaserSpot='gaussian'  #or 'flattop'
-#Energy=1e-6           #in [J]
-#PulseDuration=140e-15 #FWHM [s]
-#Nx=400                #samples in x
-#Ny=400                #samples in y
-#Nz=1000               #samples in z
-#xwindow=SpotxFWHM*2.123 #x window 5 sigma (5/2.35482=2.123)
-#ywindow=SpotyFWHM*2.123 #y window 5 sigma
-#zwindow=PulseDuration*c*2.123 #z window 5 sigma
-#
-#xprobe=np.linspace(-xwindow,xwindow, Nx) 
-#yprobe=np.linspace(-ywindow,ywindow, Ny) 
-#zprobe=np.linspace(-zwindow,zwindow, Nz)
-#
-##create the U(x,y,z) of the probe
-##U [sqrt(W)/m]
-#Upb=CreateLaserProfile(LaserShape,LaserSpot,LambdaProbe,Energy,PulseDuration,SpotxFWHM,SpotyFWHM, xprobe, yprobe, zprobe)
+LaserShape='CW'#'gaussian' #or 'flattop' or 'CW'
+LaserSpot='flattop'#'gaussian'  #or 'flattop'
+Energy=1e-6           #in [J]
+PulseDuration=140e-15 #FWHM [s]
+Nx=400                #samples in x
+Ny=400                #samples in y
+Nz=1000               #samples in z
+xwindow=SpotxFWHM*2.123 #x window 5 sigma (5/2.35482=2.123)
+ywindow=SpotyFWHM*2.123 #y window 5 sigma
+zwindow=PulseDuration*c*2.123 #z window 5 sigma
 
-#Laser=CreateLaserphotonTest(x,y)
+x=np.linspace(-xwindow,xwindow, Nx) 
+y=np.linspace(-ywindow,ywindow, Ny) 
+z=np.linspace(-zwindow,zwindow, Nz)
 
-Laser=[photon]*int(SpotyFWHM/Dy)
-for i in range(int(SpotxFWHM/Dx)):
-    Laser[i]=[photon]*int(SpotxFWHM/Dx)
-    for k in range(int(SpotyFWHM/Dy)):
-        Laser[i][k]=photon(x[int(xmax/2+i)], y[int(ymax/2+k)], z[0], zmax)
+#create the U(x,y,z) of the probe
+#U [sqrt(W)/m]
+upb=CreateLaserProfile(LaserShape,LaserSpot,LambdaProbe,Energy,PulseDuration,SpotxFWHM,SpotyFWHM, x, y, z)
+
+#Laser=CreateLaserphotonTest([SpotxFWHM/Dx], [SpotyFWHM/Dy], zp, zmax, lambdal=LambdaProbe)
+#Laser=CreateLaserphotonTest([1,2,3], [1.5, 2.5, 3.5], zp, zmax, lambdal=LambdaProbe)
         
         
 print('Laser acquired')
     
 """
 LOAD OPTICAL PATH
-"""          
+"""
 #how many lenses? how many BS? How to solve them (ray tracing or Fourier optics?) Where the plasma is?
 
 """
 LASER PROPAGATION
 """
-#yShift = np.fft.fftshift(y)
-#fftyShift = np.fft.fft(yShift)
-#ffty = np.fft.fftshift(fftyShift)
 
 #convert plasma density in refrective index
 #n_c=me*eps0*((2*np.pi*c)/e)**2/(LambdaProbe**2)*1e-6 #[cm^-3]
 #n=np.sqrt(1-n_e/n_c)
 
 #let the laser propagates inside 
-zinit=z[0]
-zend=z[-1]
-Laser=RayTracingPropagator(x, y, z, Dx, Dy, Dz, zinit, zend, Laser, n)
+zinit=zp[0]
+zend=zp[-1]
+#Laser=RayTracingPropagatorParax(xp, yp, zp, Dx, Dy, Dz, zinit, zend, Laser, n)
+[x1, y1, upbend]=FresnelOneStepPropagatorTF(x,y,upb[:,:,0], LambdaProbe, LambdaProbe)
+#[x1, y1, upbend]=Fresnel2StepsPropagatorTF(x,y,upb[:,:,0], LambdaProbe,0.01, Dx) 
 
 
 
-     
 """
 PLOTS
 """
@@ -157,8 +152,8 @@ if plotDensitySlicex:
 #    DPax  = plt.subplot(111)
     #fig.set_size_inches(2*3.25, 3.0, forward=True)
 #    fig.set_size_inches(10.0, 5.0, forward=True)
-    DPax=plt.plot(z, Laser[0][0].x, 'r')
-    plt.imshow(n [:, int(ymax/2), :], extent=[z[0],z[-1],x[0],x[-1]], cmap=plt.cm.plasma)
+    DPax=plt.plot(zp, Laser[0][0].x, 'r')
+    plt.imshow(n [:, int(ymax/2), :], extent=[zp[0],zp[-1],xp[0],xp[-1]], cmap=plt.cm.plasma)
     plt.xlabel('z')
     plt.ylabel('x')
     plt.colorbar()
@@ -169,8 +164,8 @@ if plotDensitySlicey:
 #    DPax  = plt.subplot(111)
     #fig.set_size_inches(2*3.25, 3.0, forward=True)
 #    fig.set_size_inches(10.0, 5.0, forward=True)
-    DPax=plt.plot(z, Laser[0][0].y, 'r')
-    plt.imshow(n [int(xmax/2), :,  :], extent=[z[0],z[-1],y[0],y[-1]], cmap=plt.cm.plasma)
+    DPax=plt.plot(zp, Laser[0][0].y, 'r')
+    plt.imshow(n [int(xmax/2), :,  :], extent=[zp[0],zp[-1],yp[0],yp[-1]], cmap=plt.cm.plasma)
     plt.xlabel('z')
     plt.ylabel('y')
     plt.colorbar()
@@ -178,7 +173,7 @@ if plotDensitySlicey:
     
 #laser probe
 if plotLaserSlice:
-    LasPlot = plt.imshow(n [:, int(len(yprobe)/2), :], cmap=plt.cm.plasma)
+    LasPlot = plt.imshow(np.abs(upbend [:, :]), extent=[zp[0],zp[-1],yp[0],yp[-1]], cmap=plt.cm.plasma)
     plt.colorbar()
     plt.xlabel('z')
     plt.ylabel('x')
