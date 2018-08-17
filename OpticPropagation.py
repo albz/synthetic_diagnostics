@@ -113,7 +113,7 @@ z=np.linspace(-zwindow,zwindow, Nz)
 
 #create the U(x,y,z) of the probe
 #U [sqrt(W)/m]
-upb=CreateLaserProfile(LaserShape,LaserSpot,LambdaProbe,Energy,PulseDuration,SpotxFWHM,SpotyFWHM, x, y, z)
+Upb=CreateLaserProfile(LaserShape,LaserSpot,LambdaProbe,Energy,PulseDuration,SpotxFWHM,SpotyFWHM, x, y, z)
 
 #Laser=CreateLaserphotonTest([SpotxFWHM/Dx], [SpotyFWHM/Dy], zp, zmax, lambdal=LambdaProbe)
 #Laser=CreateLaserphotonTest([1,2,3], [1.5, 2.5, 3.5], zp, zmax, lambdal=LambdaProbe)
@@ -138,7 +138,8 @@ LASER PROPAGATION
 zinit=zp[0]
 zend=zp[-1]
 #Laser=RayTracingPropagatorParax(xp, yp, zp, Dx, Dy, Dz, zinit, zend, Laser, n)
-[x1, y1, upbend]=FresnelOneStepPropagatorTF(x,y,upb[:,:,0], LambdaProbe, LambdaProbe)
+[x1, y1, Upbend]=Fresnel1StepPropagatorTF(x,y,Upb[:,:,0], LambdaProbe, 1)
+#[x1, y1, upbend]=Fresnel2StepPropagatorTF(x,y,upb[:,:,0], LambdaProbe,0.1, 20)
 #[x1, y1, upbend]=Fresnel2StepsPropagatorTF(x,y,upb[:,:,0], LambdaProbe,0.01, Dx) 
 
 
@@ -173,7 +174,7 @@ if plotDensitySlicey:
     
 #laser probe
 if plotLaserSlice:
-    LasPlot = plt.imshow(np.abs(upbend [:, :]), extent=[zp[0],zp[-1],yp[0],yp[-1]], cmap=plt.cm.plasma)
+    LasPlot = plt.imshow(Irradiance(Upbend), extent=[zp[0],zp[-1],yp[0],yp[-1]], cmap=plt.cm.plasma)
     plt.colorbar()
     plt.xlabel('z')
     plt.ylabel('x')

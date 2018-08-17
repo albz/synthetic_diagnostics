@@ -1,9 +1,12 @@
-\documentclass{article}
+\documentclass{book}
 \usepackage{graphicx}
+\usepackage{listings}
 
 \begin{document}
 \title{Ray propagation}
-	
+\maketitle
+
+\lstset{language=Python}
 The axis are defined by the initial rays position. It is defined as 
 \subsubsection{Fresnel Propagator Transfer Function}
 There are two different solvers, depending if the parater $m$ is explicited. $m$ sets the size of the grid 
@@ -23,4 +26,66 @@ The Sellmeier equation is implemented in the function \index{Sellmeier}Sellmeier
 
 For not-implemented materials, it is possible to use the ''custom'' material whose coefficients can be declared launching the Sellmeier function.
 
+\begin{lstlisting}[caption={Un codice in display.},label=lst:display]
+for i:=maxint to 0 
+do begin { non far nulla }
+end;
+write(’Benvenuto in Pascal.’); 
+\end{lstlisting} 
+
+%\lstinputlisting[language=Python, firstline=37, lastline=45]{source_filename.py}
+
 \end{document}
+
+
+@inproceedings{coy2005choosing,
+	title={Choosing mesh spacings and mesh dimensions for wave optics simulation},
+	author={Coy, Steve},
+	booktitle={Advanced Wavefront Control: Methods, Devices, and Applications III},
+	volume={5894},
+	pages={589405},
+	year={2005},
+	organization={International Society for Optics and Photonics}
+}
+
+@inproceedings{schmidt2010numerical,
+	title={Numerical simulation of optical wave propagation with examples in MATLAB},
+	author={Schmidt, Jason Daniel},
+	year={2010},
+	organization={SPIE Bellingham, Washington, USA}
+}
+
+@article{lambert1998linear,
+	title={Linear systems approach to simulation of optical diffraction},
+	author={Lambert, Andrew J and Fraser, Donald},
+	journal={Applied optics},
+	volume={37},
+	number={34},
+	pages={7933--7939},
+	year={1998},
+	publisher={Optical Society of America}
+}
+
+@book{voelz2011computational,
+	title={Computational fourier optics: a MATLAB tutorial},
+	author={Voelz, David George},
+	year={2011},
+	publisher={SPIE press Bellingham, WA}
+}
+
+@article{goodman2008introduction,
+	title={Introduction to Fourier optics},
+	author={Goodman, Joseph},
+	year={2008},
+	publisher={McGraw-hill}
+}
+
+@inproceedings{mansell2007determining,
+	title={Determining wave-optics mesh parameters for complex optical systems},
+	author={Mansell, Justin D and Praus, Robert and Coy, Steve},
+	booktitle={Optical Modeling and Performance Predictions III},
+	volume={6675},
+	pages={66750H},
+	year={2007},
+	organization={International Society for Optics and Photonics}
+}
